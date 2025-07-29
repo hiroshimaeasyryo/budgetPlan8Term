@@ -14,6 +14,8 @@ from typing import Dict
 try:
     from utils.data_manager import DataManager
     from utils.chart_generator import ChartGenerator
+    from utils.auth_manager import AuthManager
+    from utils.login_ui import show_login_page, show_user_management_page, show_user_profile, show_header_with_user_info
 except ImportError as e:
     st.error(f"モジュールのインポートエラー: {e}")
     st.error(f"Python version: {sys.version}")
@@ -26,6 +28,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# 認証マネージャーの初期化
+auth_manager = AuthManager()
 
 # セッション状態の初期化
 if 'data_manager' not in st.session_state:
@@ -48,13 +53,72 @@ def main():
     """メインアプリケーション"""
     
     try:
-        # ヘッダー
+        # URLパラメータからページを取得
+        page = st.experimental_get_query_params().get("page", [None])[0]
+        
+        # ログアウト処理
+        if page == "logout":
+            auth_manager.logout()
+            st.success("ログアウトしました。")
+            st.rerun()
+        
+        # 認証チェック
+        if not auth_manager.is_authenticated():
+            if page == "profile":
+                st.error("ログインが必要です。")
+                return
+            
+            # ログイン画面を表示
+            result = show_login_page()
+            if result is None:  # キャンセル
+                return
+            elif not result:  # ログイン失敗
+                return
+            else:  # ログイン成功
+                st.rerun()
+        
+        # 認証済みの場合の処理
+        current_user = auth_manager.get_current_user()
+        
+        # プロフィールページ
+        if page == "profile":
+            show_user_profile()
+            return
+        
+        # ユーザー管理ページ（管理者のみ）
+        if page == "user_management":
+            show_user_management_page()
+            return
+        
+        # ヘッダーにユーザー情報を表示
+        show_header_with_user_info()
+        
+        # メインコンテンツ
         st.title("📊 8期予算計画策定ツール")
         st.markdown("各事業部の利益体質に見合った目標設定と本部費用の最適配賦を支援します")
         
         # サイドバー
         with st.sidebar:
             st.header("⚙️ 設定")
+            
+            # 管理者メニュー
+            if current_user and current_user['role'] == 'admin':
+                st.subheader("🔧 管理者メニュー")
+                if st.button("👥 ユーザー管理"):
+                    st.experimental_set_query_params(page="user_management")
+                    st.experimental_rerun()
+            
+            # ユーザーメニュー
+            st.subheader("👤 ユーザーメニュー")
+            if st.button("👤 プロフィール"):
+                st.experimental_set_query_params(page="profile")
+                st.experimental_rerun()
+            if st.button("🚪 ログアウト"):
+                auth_manager.logout()
+                st.success("ログアウトしました。")
+                st.rerun()
+            
+            st.markdown("---")
             
             # 本部費用の配賦設定
             st.subheader("本部費用配賦設定")

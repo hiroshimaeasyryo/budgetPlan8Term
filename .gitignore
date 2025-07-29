@@ -58,4 +58,7 @@ Thumbs.db
 .ipynb_checkpoints
 
 # Logs
-*.log 
+*.log
+
+# User data
+users.json 
