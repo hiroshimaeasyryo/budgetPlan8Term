@@ -236,8 +236,61 @@ class ChartGenerator:
         
         return fig
     
+    def create_allocation_detail_chart(self, allocated_costs: Dict) -> go.Figure:
+        """配賦の詳細を可視化するチャートを作成（事業部固有 vs 本部コスト）"""
+        
+        departments = list(allocated_costs.keys())
+        
+        # データを準備
+        dept_fixed = [costs["original_fixed"] / 1_000_000 for costs in allocated_costs.values()]
+        dept_variable = [costs["original_variable"] / 1_000_000 for costs in allocated_costs.values()]
+        hq_fixed = [costs["hq_fixed_allocated"] / 1_000_000 for costs in allocated_costs.values()]
+        hq_variable = [costs["hq_variable_allocated"] / 1_000_000 for costs in allocated_costs.values()]
+        
+        # 事業部固有コストと本部コストを合計
+        dept_total = [dept_fixed[i] + dept_variable[i] for i in range(len(departments))]
+        hq_total = [hq_fixed[i] + hq_variable[i] for i in range(len(departments))]
+        
+        fig = go.Figure()
+        
+        # 事業部固有コスト
+        fig.add_trace(go.Bar(
+            name='事業部固有コスト',
+            x=departments,
+            y=dept_total,
+            marker_color='#1f77b4',
+            hovertemplate='<b>%{x}</b><br>事業部固有コスト: %{y:,.1f}百万円<extra></extra>'
+        ))
+        
+        # 本部コスト配賦
+        fig.add_trace(go.Bar(
+            name='本部コスト配賦',
+            x=departments,
+            y=hq_total,
+            marker_color='#ff7f0e',
+            hovertemplate='<b>%{x}</b><br>本部コスト配賦: %{y:,.1f}百万円<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            title_text="事業部別：コスト配賦詳細（事業部固有 vs 本部コスト）",
+            xaxis_title="事業部",
+            yaxis_title="コスト (百万円)",
+            barmode='stack',
+            template="plotly_white",
+            height=500,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
+        
+        return fig
+    
     def create_allocation_summary_chart(self, allocated_costs: Dict) -> go.Figure:
-        """本部費用配賦のサマリーチャートを作成"""
+        """本部費用配賦のサマリーチャートを作成（固定費 vs 変動費）"""
         
         departments = list(allocated_costs.keys())
         fixed_costs = [costs["fixed_cost"] / 1_000_000 for costs in allocated_costs.values()]
@@ -264,12 +317,19 @@ class ChartGenerator:
         ))
         
         fig.update_layout(
-            title_text="事業部別：配賦後コスト構成",
+            title_text="事業部別：コスト構成（固定費 vs 変動費）",
             xaxis_title="事業部",
             yaxis_title="コスト (百万円)",
             barmode='stack',
             template="plotly_white",
-            height=400
+            height=400,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
         )
         
         return fig 

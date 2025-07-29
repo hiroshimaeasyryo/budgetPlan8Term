@@ -44,44 +44,6 @@ if 'variable_ratios' not in st.session_state:
     for dept_name in st.session_state.data_manager.departments.keys():
         st.session_state.variable_ratios[dept_name] = st.session_state.data_manager.allocation_ratios[dept_name]["variable"]
 
-def auto_adjust_ratios(ratios: Dict, total_target: float = 1.0) -> Dict:
-    """配賦割合を自動調整して合計を1.0にする（下から優先的に調整）"""
-    dept_names = list(ratios.keys())
-    adjusted_ratios = ratios.copy()
-    
-    # 現在の合計を計算
-    current_total = sum(adjusted_ratios.values())
-    
-    if abs(current_total - total_target) < 0.001:
-        return adjusted_ratios  # 既に合計が1.0の場合は調整不要
-    
-    # 下から優先的に調整
-    remaining_adjustment = total_target - current_total
-    
-    if remaining_adjustment > 0:
-        # 合計が1.0未満の場合、下から順に増加
-        for i in range(len(dept_names) - 1, -1, -1):
-            dept_name = dept_names[i]
-            max_increase = 1.0 - adjusted_ratios[dept_name]
-            increase = min(remaining_adjustment, max_increase)
-            adjusted_ratios[dept_name] += increase
-            remaining_adjustment -= increase
-            if abs(remaining_adjustment) < 0.001:
-                break
-    else:
-        # 合計が1.0を超える場合、下から順に減少
-        remaining_adjustment = abs(remaining_adjustment)
-        for i in range(len(dept_names) - 1, -1, -1):
-            dept_name = dept_names[i]
-            max_decrease = adjusted_ratios[dept_name]
-            decrease = min(remaining_adjustment, max_decrease)
-            adjusted_ratios[dept_name] -= decrease
-            remaining_adjustment -= decrease
-            if abs(remaining_adjustment) < 0.001:
-                break
-    
-    return adjusted_ratios
-
 def main():
     """メインアプリケーション"""
     
@@ -96,6 +58,16 @@ def main():
             
             # 本部費用の配賦設定
             st.subheader("本部費用配賦設定")
+            
+            # 操作説明
+            with st.expander("ℹ️ 操作方法", expanded=False):
+                st.markdown("""
+                **操作方法:**
+                - **スライダー**: ドラッグで概略調整
+                - **数値入力**: カーソルで上下、または直接入力で精密調整
+                - **合計確認**: 固定費・変動費それぞれの合計が1.00になるよう調整してください
+                - **リセット**: 均等配賦に戻す場合は「配賦割合をリセット」ボタンを使用
+                """)
             
             # 固定費の配賦割合
             st.markdown("**固定費配賦割合**")
@@ -129,7 +101,7 @@ def main():
                     )
                 
                 with col3:
-                    # 数値入力を表示
+                    # 数値入力を表示（カーソルで上下可能）
                     number_input = st.number_input(
                         f"値",
                         min_value=0.0,
@@ -138,7 +110,7 @@ def main():
                         step=0.01,
                         format="%.2f",
                         key=f"fixed_number_{dept_name}",
-                        help=f"0.00〜1.00の範囲で入力（{current_ratio:.1%}）"
+                        help=f"カーソルで上下、または直接入力（{current_ratio:.1%}）"
                     )
                 
                 with col4:
@@ -151,29 +123,15 @@ def main():
                 elif abs(number_input - current_ratio) > 0.001:
                     st.session_state.fixed_ratios[dept_name] = number_input
             
-            # 自動調整を適用
-            adjusted_fixed_ratios = auto_adjust_ratios(st.session_state.fixed_ratios)
-            total_fixed = sum(adjusted_fixed_ratios.values())
-            
-            # 調整結果を表示
+            # 合計を表示
+            total_fixed = sum(st.session_state.fixed_ratios.values())
             if abs(total_fixed - 1.0) < 0.001:
                 st.success(f"固定費配賦割合の合計: {total_fixed:.2f}")
             else:
-                st.warning(f"固定費配賦割合の合計: {total_fixed:.2f} (自動調整が必要)")
+                st.warning(f"固定費配賦割合の合計: {total_fixed:.2f} (1.00にする必要があります)")
             
-            # 調整された値を表示
-            if st.session_state.fixed_ratios != adjusted_fixed_ratios:
-                st.info("自動調整が適用されました:")
-                for dept_name in dept_names:
-                    original = st.session_state.fixed_ratios[dept_name]
-                    adjusted = adjusted_fixed_ratios[dept_name]
-                    if abs(original - adjusted) > 0.001:
-                        st.write(f"  {dept_name}: {original:.2f} → {adjusted:.2f}")
-                        # セッション状態を更新
-                        st.session_state.fixed_ratios[dept_name] = adjusted
-            
-            # 調整された値を固定費配賦割合として使用
-            fixed_ratios = adjusted_fixed_ratios
+            # 固定費配賦割合として使用
+            fixed_ratios = st.session_state.fixed_ratios
             
             # 変動費の配賦割合
             st.markdown("**変動費配賦割合**")
@@ -204,7 +162,7 @@ def main():
                     )
                 
                 with col3:
-                    # 数値入力を表示
+                    # 数値入力を表示（カーソルで上下可能）
                     number_input = st.number_input(
                         f"値",
                         min_value=0.0,
@@ -213,7 +171,7 @@ def main():
                         step=0.01,
                         format="%.2f",
                         key=f"variable_number_{dept_name}",
-                        help=f"0.00〜1.00の範囲で入力（{current_ratio:.1%}）"
+                        help=f"カーソルで上下、または直接入力（{current_ratio:.1%}）"
                     )
                 
                 with col4:
@@ -226,31 +184,17 @@ def main():
                 elif abs(number_input - current_ratio) > 0.001:
                     st.session_state.variable_ratios[dept_name] = number_input
             
-            # 自動調整を適用
-            adjusted_variable_ratios = auto_adjust_ratios(st.session_state.variable_ratios)
-            total_variable = sum(adjusted_variable_ratios.values())
-            
-            # 調整結果を表示
+            # 合計を表示
+            total_variable = sum(st.session_state.variable_ratios.values())
             if abs(total_variable - 1.0) < 0.001:
                 st.success(f"変動費配賦割合の合計: {total_variable:.2f}")
             else:
-                st.warning(f"変動費配賦割合の合計: {total_variable:.2f} (自動調整が必要)")
+                st.warning(f"変動費配賦割合の合計: {total_variable:.2f} (1.00にする必要があります)")
             
-            # 調整された値を表示
-            if st.session_state.variable_ratios != adjusted_variable_ratios:
-                st.info("自動調整が適用されました:")
-                for dept_name in dept_names:
-                    original = st.session_state.variable_ratios[dept_name]
-                    adjusted = adjusted_variable_ratios[dept_name]
-                    if abs(original - adjusted) > 0.001:
-                        st.write(f"  {dept_name}: {original:.2f} → {adjusted:.2f}")
-                        # セッション状態を更新
-                        st.session_state.variable_ratios[dept_name] = adjusted
+            # 変動費配賦割合として使用
+            variable_ratios = st.session_state.variable_ratios
             
-            # 調整された値を変動費配賦割合として使用
-            variable_ratios = adjusted_variable_ratios
-            
-            # 配賦割合を更新（自動調整された値を使用）
+            # 配賦割合を更新
             new_ratios = {}
             for dept_name in st.session_state.data_manager.departments.keys():
                 new_ratios[dept_name] = {
@@ -340,11 +284,78 @@ def main():
             # 配賦後のコストを計算
             allocated_costs = st.session_state.data_manager.calculate_allocated_costs()
             
+            # 配賦詳細チャートを生成
+            detail_fig = st.session_state.chart_generator.create_allocation_detail_chart(allocated_costs)
+            
+            # グラフを表示
+            st.plotly_chart(detail_fig, use_container_width=True)
+            
+            # 配賦詳細の説明
+            with st.expander("ℹ️ 配賦詳細の見方", expanded=False):
+                st.markdown("""
+                **グラフの見方:**
+                - **青いバー**: 事業部固有コスト（固定費+変動費）
+                - **オレンジのバー**: 本部コスト配賦分（固定費+変動費）
+                
+                **配賦の仕組み:**
+                - 各事業部は固有のコスト（青）を持っています
+                - 本部費用は設定した配賦割合に基づいて各事業部に配賦されます（オレンジ）
+                - 配賦後の総コスト = 事業部固有コスト + 本部コスト配賦分
+                """)
+            
             # サマリーチャートを生成
             summary_fig = st.session_state.chart_generator.create_allocation_summary_chart(allocated_costs)
             
             # グラフを表示
             st.plotly_chart(summary_fig, use_container_width=True)
+            
+            # コスト構成の説明
+            with st.expander("ℹ️ コスト構成の見方", expanded=False):
+                st.markdown("""
+                **グラフの見方:**
+                - **青いバー**: 固定費（事業部固有+本部配賦）
+                - **オレンジのバー**: 変動費（事業部固有+本部配賦）
+                
+                **コスト構成:**
+                - 各事業部の総コストは固定費と変動費に分かれています
+                - 固定費は売上に関係なく発生するコスト
+                - 変動費は売上に比例して発生するコスト
+                - 損益分岐点分析では、固定費÷限界利益率で損益分岐点を計算
+                """)
+            
+            # 配賦詳細テーブル
+            st.subheader("配賦詳細データ")
+            detail_data = []
+            for dept_name, costs in allocated_costs.items():
+                detail_data.append({
+                    "事業部": dept_name,
+                    "事業部固有固定費": f"{costs['original_fixed']:,.0f}円",
+                    "本部固定費配賦": f"{costs['hq_fixed_allocated']:,.0f}円",
+                    "総固定費": f"{costs['fixed_cost']:,.0f}円",
+                    "事業部固有変動費": f"{costs['original_variable']:,.0f}円",
+                    "本部変動費配賦": f"{costs['hq_variable_allocated']:,.0f}円",
+                    "総変動費": f"{costs['variable_cost']:,.0f}円",
+                    "配賦後限界利益率": f"{costs['margin_rate']:.1%}"
+                })
+            
+            detail_df = pd.DataFrame(detail_data)
+            st.dataframe(detail_df, use_container_width=True)
+            
+            # 配賦割合テーブル
+            st.subheader("本部費用配賦割合")
+            allocation_ratios = st.session_state.data_manager.get_allocation_ratios()
+            ratio_data = []
+            for dept_name, ratios in allocation_ratios.items():
+                ratio_data.append({
+                    "事業部": dept_name,
+                    "固定費配賦率": f"{ratios['fixed']:.1%}",
+                    "変動費配賦率": f"{ratios['variable']:.1%}",
+                    "固定費配賦額": f"{allocated_costs[dept_name]['hq_fixed_allocated']:,.0f}円",
+                    "変動費配賦額": f"{allocated_costs[dept_name]['hq_variable_allocated']:,.0f}円"
+                })
+            
+            ratio_df = pd.DataFrame(ratio_data)
+            st.dataframe(ratio_df, use_container_width=True)
             
             # 配賦の影響分析
             st.subheader("配賦の影響分析")
