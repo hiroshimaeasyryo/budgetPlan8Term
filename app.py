@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import sys
 import traceback
+from typing import Dict
 
 # エラーハンドリングを追加
 try:
@@ -32,6 +33,55 @@ if 'data_manager' not in st.session_state:
 if 'chart_generator' not in st.session_state:
     st.session_state.chart_generator = ChartGenerator()
 
+# スライダーの値を管理するセッション状態
+if 'fixed_ratios' not in st.session_state:
+    st.session_state.fixed_ratios = {}
+    for dept_name in st.session_state.data_manager.departments.keys():
+        st.session_state.fixed_ratios[dept_name] = st.session_state.data_manager.allocation_ratios[dept_name]["fixed"]
+
+if 'variable_ratios' not in st.session_state:
+    st.session_state.variable_ratios = {}
+    for dept_name in st.session_state.data_manager.departments.keys():
+        st.session_state.variable_ratios[dept_name] = st.session_state.data_manager.allocation_ratios[dept_name]["variable"]
+
+def auto_adjust_ratios(ratios: Dict, total_target: float = 1.0) -> Dict:
+    """配賦割合を自動調整して合計を1.0にする（下から優先的に調整）"""
+    dept_names = list(ratios.keys())
+    adjusted_ratios = ratios.copy()
+    
+    # 現在の合計を計算
+    current_total = sum(adjusted_ratios.values())
+    
+    if abs(current_total - total_target) < 0.001:
+        return adjusted_ratios  # 既に合計が1.0の場合は調整不要
+    
+    # 下から優先的に調整
+    remaining_adjustment = total_target - current_total
+    
+    if remaining_adjustment > 0:
+        # 合計が1.0未満の場合、下から順に増加
+        for i in range(len(dept_names) - 1, -1, -1):
+            dept_name = dept_names[i]
+            max_increase = 1.0 - adjusted_ratios[dept_name]
+            increase = min(remaining_adjustment, max_increase)
+            adjusted_ratios[dept_name] += increase
+            remaining_adjustment -= increase
+            if abs(remaining_adjustment) < 0.001:
+                break
+    else:
+        # 合計が1.0を超える場合、下から順に減少
+        remaining_adjustment = abs(remaining_adjustment)
+        for i in range(len(dept_names) - 1, -1, -1):
+            dept_name = dept_names[i]
+            max_decrease = adjusted_ratios[dept_name]
+            decrease = min(remaining_adjustment, max_decrease)
+            adjusted_ratios[dept_name] -= decrease
+            remaining_adjustment -= decrease
+            if abs(remaining_adjustment) < 0.001:
+                break
+    
+    return adjusted_ratios
+
 def main():
     """メインアプリケーション"""
     
@@ -49,63 +99,165 @@ def main():
             
             # 固定費の配賦割合
             st.markdown("**固定費配賦割合**")
-            fixed_ratios = {}
-            total_fixed = 0
             
-            for dept_name in st.session_state.data_manager.departments.keys():
-                current_ratio = st.session_state.data_manager.allocation_ratios[dept_name]["fixed"]
-                ratio = st.slider(
-                    f"{dept_name}事業部",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=current_ratio,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"fixed_{dept_name}"
-                )
-                fixed_ratios[dept_name] = ratio
-                total_fixed += ratio
+            # 事業部名のリストを取得（順序を保持）
+            dept_names = list(st.session_state.data_manager.departments.keys())
             
-            # 合計が1.0になるように調整
-            if abs(total_fixed - 1.0) > 0.001:
-                st.warning(f"固定費配賦割合の合計: {total_fixed:.2f} (1.00にする必要があります)")
-            else:
+            # 各事業部のスライダーと数値入力を表示
+            for i, dept_name in enumerate(dept_names):
+                # セッション状態から現在の値を取得
+                current_ratio = st.session_state.fixed_ratios[dept_name]
+                
+                # 4列レイアウトでラベル、スライダー、数値入力、現在値を並べる
+                col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+                
+                with col1:
+                    # ラベルを表示
+                    st.markdown(f"**{dept_name}事業部**")
+                
+                with col2:
+                    # スライダーを表示
+                    ratio = st.slider(
+                        f"スライダー",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=current_ratio,
+                        step=0.01,
+                        format="%.2f",
+                        key=f"fixed_slider_{dept_name}",
+                        label_visibility="collapsed"
+                    )
+                
+                with col3:
+                    # 数値入力を表示
+                    number_input = st.number_input(
+                        f"値",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=current_ratio,
+                        step=0.01,
+                        format="%.2f",
+                        key=f"fixed_number_{dept_name}",
+                        help=f"0.00〜1.00の範囲で入力（{current_ratio:.1%}）"
+                    )
+                
+                with col4:
+                    # 現在値を表示
+                    st.markdown(f"**{current_ratio:.1%}**")
+                
+                # どちらかが変更された場合、セッション状態を更新
+                if abs(ratio - current_ratio) > 0.001:
+                    st.session_state.fixed_ratios[dept_name] = ratio
+                elif abs(number_input - current_ratio) > 0.001:
+                    st.session_state.fixed_ratios[dept_name] = number_input
+            
+            # 自動調整を適用
+            adjusted_fixed_ratios = auto_adjust_ratios(st.session_state.fixed_ratios)
+            total_fixed = sum(adjusted_fixed_ratios.values())
+            
+            # 調整結果を表示
+            if abs(total_fixed - 1.0) < 0.001:
                 st.success(f"固定費配賦割合の合計: {total_fixed:.2f}")
+            else:
+                st.warning(f"固定費配賦割合の合計: {total_fixed:.2f} (自動調整が必要)")
+            
+            # 調整された値を表示
+            if st.session_state.fixed_ratios != adjusted_fixed_ratios:
+                st.info("自動調整が適用されました:")
+                for dept_name in dept_names:
+                    original = st.session_state.fixed_ratios[dept_name]
+                    adjusted = adjusted_fixed_ratios[dept_name]
+                    if abs(original - adjusted) > 0.001:
+                        st.write(f"  {dept_name}: {original:.2f} → {adjusted:.2f}")
+                        # セッション状態を更新
+                        st.session_state.fixed_ratios[dept_name] = adjusted
+            
+            # 調整された値を固定費配賦割合として使用
+            fixed_ratios = adjusted_fixed_ratios
             
             # 変動費の配賦割合
             st.markdown("**変動費配賦割合**")
-            variable_ratios = {}
-            total_variable = 0
             
-            for dept_name in st.session_state.data_manager.departments.keys():
-                current_ratio = st.session_state.data_manager.allocation_ratios[dept_name]["variable"]
-                ratio = st.slider(
-                    f"{dept_name}事業部",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=current_ratio,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"variable_{dept_name}"
-                )
-                variable_ratios[dept_name] = ratio
-                total_variable += ratio
+            # 各事業部のスライダーと数値入力を表示
+            for i, dept_name in enumerate(dept_names):
+                # セッション状態から現在の値を取得
+                current_ratio = st.session_state.variable_ratios[dept_name]
+                
+                # 4列レイアウトでラベル、スライダー、数値入力、現在値を並べる
+                col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+                
+                with col1:
+                    # ラベルを表示
+                    st.markdown(f"**{dept_name}事業部**")
+                
+                with col2:
+                    # スライダーを表示
+                    ratio = st.slider(
+                        f"スライダー",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=current_ratio,
+                        step=0.01,
+                        format="%.2f",
+                        key=f"variable_slider_{dept_name}",
+                        label_visibility="collapsed"
+                    )
+                
+                with col3:
+                    # 数値入力を表示
+                    number_input = st.number_input(
+                        f"値",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=current_ratio,
+                        step=0.01,
+                        format="%.2f",
+                        key=f"variable_number_{dept_name}",
+                        help=f"0.00〜1.00の範囲で入力（{current_ratio:.1%}）"
+                    )
+                
+                with col4:
+                    # 現在値を表示
+                    st.markdown(f"**{current_ratio:.1%}**")
+                
+                # どちらかが変更された場合、セッション状態を更新
+                if abs(ratio - current_ratio) > 0.001:
+                    st.session_state.variable_ratios[dept_name] = ratio
+                elif abs(number_input - current_ratio) > 0.001:
+                    st.session_state.variable_ratios[dept_name] = number_input
             
-            # 合計が1.0になるように調整
-            if abs(total_variable - 1.0) > 0.001:
-                st.warning(f"変動費配賦割合の合計: {total_variable:.2f} (1.00にする必要があります)")
-            else:
+            # 自動調整を適用
+            adjusted_variable_ratios = auto_adjust_ratios(st.session_state.variable_ratios)
+            total_variable = sum(adjusted_variable_ratios.values())
+            
+            # 調整結果を表示
+            if abs(total_variable - 1.0) < 0.001:
                 st.success(f"変動費配賦割合の合計: {total_variable:.2f}")
+            else:
+                st.warning(f"変動費配賦割合の合計: {total_variable:.2f} (自動調整が必要)")
             
-            # 配賦割合を更新
-            if abs(total_fixed - 1.0) < 0.001 and abs(total_variable - 1.0) < 0.001:
-                new_ratios = {}
-                for dept_name in st.session_state.data_manager.departments.keys():
-                    new_ratios[dept_name] = {
-                        "fixed": fixed_ratios[dept_name],
-                        "variable": variable_ratios[dept_name]
-                    }
-                st.session_state.data_manager.update_allocation_ratios(new_ratios)
+            # 調整された値を表示
+            if st.session_state.variable_ratios != adjusted_variable_ratios:
+                st.info("自動調整が適用されました:")
+                for dept_name in dept_names:
+                    original = st.session_state.variable_ratios[dept_name]
+                    adjusted = adjusted_variable_ratios[dept_name]
+                    if abs(original - adjusted) > 0.001:
+                        st.write(f"  {dept_name}: {original:.2f} → {adjusted:.2f}")
+                        # セッション状態を更新
+                        st.session_state.variable_ratios[dept_name] = adjusted
+            
+            # 調整された値を変動費配賦割合として使用
+            variable_ratios = adjusted_variable_ratios
+            
+            # 配賦割合を更新（自動調整された値を使用）
+            new_ratios = {}
+            for dept_name in st.session_state.data_manager.departments.keys():
+                new_ratios[dept_name] = {
+                    "fixed": fixed_ratios[dept_name],
+                    "variable": variable_ratios[dept_name]
+                }
+            st.session_state.data_manager.update_allocation_ratios(new_ratios)
             
             # リセットボタン
             if st.button("配賦割合をリセット"):
@@ -119,6 +271,12 @@ def main():
                         "variable": equal_ratio
                     }
                 st.session_state.data_manager.update_allocation_ratios(reset_ratios)
+                
+                # セッション状態もリセット
+                for dept_name in st.session_state.data_manager.departments.keys():
+                    st.session_state.fixed_ratios[dept_name] = equal_ratio
+                    st.session_state.variable_ratios[dept_name] = equal_ratio
+                
                 st.rerun()
         
         # メインコンテンツ
