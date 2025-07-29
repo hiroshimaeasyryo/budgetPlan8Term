@@ -127,8 +127,37 @@ def main():
         with tab1:
             st.header("損益分岐点分析")
             
+            # 配賦の影響についての説明
+            with st.expander("ℹ️ 配賦の影響について", expanded=False):
+                st.markdown("""
+                **限界利益率の計算方法（売上総利益調整版）:**
+                - **配賦前:** 事業部固有の限界利益率を使用
+                - **配賦後:** 売上総利益と変動費の両方を調整して再計算
+                
+                **計算式:**
+                - 元の仮の売上総利益 = 事業部変動費 ÷ (1 - 元の限界利益率)
+                - 配賦後売上総利益 = 元の仮の売上総利益 + 本部変動費配賦額
+                - 配賦後限界利益率 = (配賦後売上総利益 - 総変動費) ÷ 配賦後売上総利益
+                
+                **変動費配賦の影響:**
+                - 本部変動費を配賦すると、売上総利益と変動費の両方が増加します
+                - 売上総利益の増加により、限界利益率の低下が緩和されます
+                - より現実的な損益分岐点分析が可能になります
+                """)
+            
             # 配賦後のコストを計算
             allocated_costs = st.session_state.data_manager.calculate_allocated_costs()
+            
+            # 仮の売上総利益を表示
+            st.subheader("仮の売上総利益（配賦計算基準）")
+            col1, col2, col3 = st.columns(3)
+            for i, (dept_name, costs) in enumerate(allocated_costs.items()):
+                with col1 if i < 2 else col2 if i < 4 else col3:
+                    st.metric(
+                        f"{dept_name}事業部",
+                        f"{costs['implied_sales']:,.0f}円",
+                        f"配賦後限界利益率: {costs['margin_rate']:.1%}"
+                    )
             
             # グラフを生成
             fig = st.session_state.chart_generator.create_break_even_chart(allocated_costs)
@@ -159,6 +188,28 @@ def main():
             # グラフを表示
             st.plotly_chart(summary_fig, use_container_width=True)
             
+            # 配賦の影響分析
+            st.subheader("配賦の影響分析")
+            impact_analysis = st.session_state.data_manager.get_allocation_impact_analysis()
+            
+            # 影響分析をDataFrameで表示
+            impact_data = []
+            for dept_name, impact in impact_analysis.items():
+                impact_data.append({
+                    "事業部": dept_name,
+                    "元の限界利益率": f"{impact['配賦前']['限界利益率']:.1%}",
+                    "配賦後限界利益率": f"{impact['配賦後']['限界利益率']:.1%}",
+                    "限界利益率変化": f"{impact['影響']['限界利益率変化']:+.1%}",
+                    "売上総利益増加": f"{impact['影響']['売上総利益増加']:,.0f}円",
+                    "売上総利益増加率": f"{impact['影響']['売上総利益増加率']:+.1f}%",
+                    "変動費増加": f"{impact['影響']['変動費増加']:,.0f}円",
+                    "変動費増加率": f"{impact['影響']['変動費増加率']:+.1f}%",
+                    "固定費増加": f"{impact['影響']['固定費増加']:,.0f}円"
+                })
+            
+            impact_df = pd.DataFrame(impact_data)
+            st.dataframe(impact_df, use_container_width=True)
+            
             # サマリーテーブル
             st.subheader("配賦後データ")
             summary_df = st.session_state.data_manager.get_summary_data()
@@ -175,15 +226,37 @@ def main():
             # 基本データをDataFrameで表示
             basic_data = []
             for dept_name, data in dept_data.items():
+                implied_sales = st.session_state.data_manager.calculate_implied_sales(dept_name)
                 basic_data.append({
                     "事業部": dept_name,
-                    "限界利益率": f"{data['margin_rate']:.1%}",
+                    "元の限界利益率": f"{data['margin_rate']:.1%}",
+                    "仮の売上総利益": f"{implied_sales:,.0f}円",
                     "固定費": f"{data['fixed_cost']:,.0f}円",
                     "変動費": f"{data['variable_cost']:,.0f}円"
                 })
             
             basic_df = pd.DataFrame(basic_data)
             st.dataframe(basic_df, use_container_width=True)
+            
+            # 配賦後のデータ
+            st.subheader("配賦後データ")
+            allocated_costs = st.session_state.data_manager.calculate_allocated_costs()
+            allocated_data = []
+            for dept_name, costs in allocated_costs.items():
+                allocated_data.append({
+                    "事業部": dept_name,
+                    "配賦後限界利益率": f"{costs['margin_rate']:.1%}",
+                    "限界利益率変化": f"{costs['margin_rate'] - costs['original_margin_rate']:+.1%}",
+                    "配賦後売上総利益": f"{costs['implied_sales']:,.0f}円",
+                    "売上総利益増加": f"{costs['sales_increase']:,.0f}円",
+                    "総固定費": f"{costs['fixed_cost']:,.0f}円",
+                    "総変動費": f"{costs['variable_cost']:,.0f}円",
+                    "本部固定費配賦": f"{costs['hq_fixed_allocated']:,.0f}円",
+                    "本部変動費配賦": f"{costs['hq_variable_allocated']:,.0f}円"
+                })
+            
+            allocated_df = pd.DataFrame(allocated_data)
+            st.dataframe(allocated_df, use_container_width=True)
             
             # 本部費用
             st.subheader("本部費用")
