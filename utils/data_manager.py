@@ -206,4 +206,143 @@ class DataManager:
                 "損益分岐点": f"{bep:,.0f}円"
             })
         
-        return pd.DataFrame(summary_data) 
+        return pd.DataFrame(summary_data)
+    
+    def calculate_operating_profit_contribution(self, target_sales_increase: float = None) -> Dict:
+        """
+        営業利益貢献度を計算
+        
+        Args:
+            target_sales_increase: 目標売上総利益増加額（Noneの場合は現在の配賦による増加額を使用）
+        
+        Returns:
+            各事業部の営業利益貢献度分析
+        """
+        allocated_costs = self.calculate_allocated_costs()
+        contribution_data = {}
+        
+        for dept_name, costs in allocated_costs.items():
+            # 売上総利益増加額（本部変動費配賦による増加）
+            sales_increase = costs["sales_increase"]
+            
+            # 目標売上総利益増加額が指定されている場合は使用
+            if target_sales_increase is not None:
+                sales_increase = target_sales_increase
+            
+            # 営業利益への貢献額 = 売上総利益増加額 × 限界利益率
+            profit_contribution = sales_increase * costs["margin_rate"]
+            
+            # 現在の営業利益（仮の売上総利益から固定費を引いた額）
+            current_operating_profit = costs["implied_sales"] - costs["fixed_cost"]
+            
+            # 営業利益貢献度の計算（営業利益が負の値の場合の処理を改善）
+            if current_operating_profit > 0:
+                contribution_rate = profit_contribution / current_operating_profit
+                profit_increase_rate = profit_contribution / current_operating_profit
+            elif current_operating_profit < 0:
+                # 営業利益が負の値の場合、損失改善率として計算
+                contribution_rate = profit_contribution / abs(current_operating_profit)
+                profit_increase_rate = profit_contribution / abs(current_operating_profit)
+            else:
+                # 営業利益が0の場合
+                contribution_rate = 0
+                profit_increase_rate = 0
+            
+            # 損益分岐点との差額を計算
+            break_even_point = self.calculate_break_even_point(dept_name)
+            
+            contribution_data[dept_name] = {
+                "売上総利益増加額": sales_increase,
+                "限界利益率": costs["margin_rate"],
+                "営業利益貢献額": profit_contribution,
+                "営業利益貢献度": contribution_rate,
+                "営業利益増加率": profit_increase_rate,
+                "損益分岐点": break_even_point,
+                "営業利益状態": "黒字" if current_operating_profit > 0 else "赤字" if current_operating_profit < 0 else "損益分岐"
+            }
+        
+        return contribution_data
+    
+    def get_operating_profit_contribution_summary(self, target_sales_increase: float = None) -> pd.DataFrame:
+        """
+        営業利益貢献度のサマリーをDataFrameで取得
+        
+        Args:
+            target_sales_increase: 目標売上総利益増加額
+        
+        Returns:
+            営業利益貢献度のサマリーDataFrame
+        """
+        contribution_data = self.calculate_operating_profit_contribution(target_sales_increase)
+        
+        summary_data = []
+        for dept_name, data in contribution_data.items():
+            # 営業利益貢献度の表示を改善
+            if data["営業利益状態"] == "赤字":
+                contribution_display = f"損失改善率: {data['営業利益貢献度']:.1%}"
+                profit_increase_display = f"損失改善率: {data['営業利益増加率']:.1%}"
+            else:
+                contribution_display = f"{data['営業利益貢献度']:.1%}"
+                profit_increase_display = f"{data['営業利益増加率']:.1%}"
+            
+            summary_data.append({
+                "事業部": dept_name,
+                "売上総利益増加額": f"{data['売上総利益増加額']:,.0f}円",
+                "限界利益率": f"{data['限界利益率']:.1%}",
+                "営業利益貢献額": f"{data['営業利益貢献額']:,.0f}円",
+                "営業利益状態": data["営業利益状態"],
+                "営業利益貢献度": contribution_display,
+                "営業利益増加率": profit_increase_display,
+                "損益分岐点": f"{data['損益分岐点']:,.0f}円"
+            })
+        
+        return pd.DataFrame(summary_data)
+    
+    def calculate_sales_profit_elasticity(self) -> Dict:
+        """
+        売上総利益-営業利益弾性を計算
+        売上総利益が1%増加した時の営業利益の増加率を算出
+        
+        Returns:
+            各事業部の売上総利益-営業利益弾性
+        """
+        allocated_costs = self.calculate_allocated_costs()
+        elasticity_data = {}
+        
+        for dept_name, costs in allocated_costs.items():
+            current_profit = costs["implied_sales"] - costs["fixed_cost"]
+            
+            # 売上総利益を1%増加させた場合の営業利益
+            increased_sales = costs["implied_sales"] * 1.01
+            increased_profit = increased_sales - costs["fixed_cost"]
+            
+            # 営業利益の増加率（営業利益が負の値の場合の処理を改善）
+            if current_profit > 0:
+                profit_increase_rate = (increased_profit - current_profit) / current_profit
+            elif current_profit < 0:
+                # 営業利益が負の値の場合、損失改善率として計算
+                if increased_profit > current_profit:
+                    profit_increase_rate = (increased_profit - current_profit) / abs(current_profit)
+                else:
+                    profit_increase_rate = 0
+            else:
+                # 営業利益が0の場合
+                profit_increase_rate = 0
+            
+            # 売上総利益-営業利益弾性 = 営業利益増加率 / 売上総利益増加率（1%）
+            elasticity = profit_increase_rate / 0.01
+            
+            # 営業利益マージン
+            if costs["implied_sales"] > 0:
+                profit_margin = current_profit / costs["implied_sales"]
+            else:
+                profit_margin = 0
+            
+            elasticity_data[dept_name] = {
+                "営業利益増加率": profit_increase_rate,
+                "売上総利益-営業利益弾性": elasticity,
+                "限界利益率": costs["margin_rate"],
+                "営業利益状態": "黒字" if current_profit > 0 else "赤字" if current_profit < 0 else "損益分岐"
+            }
+        
+        return elasticity_data 

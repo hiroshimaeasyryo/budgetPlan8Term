@@ -319,7 +319,7 @@ def main():
                 st.rerun()
         
         # メインコンテンツ
-        tab1, tab2, tab3, tab4 = st.tabs(["📈 損益分岐点分析", "📊 配賦サマリー", "📋 データ詳細", "📚 損益分岐点分析の説明"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 損益分岐点分析", "📊 配賦サマリー", "📋 データ詳細", "💰 営業利益貢献度", "📚 損益分岐点分析の説明"])
         
         with tab1:
             st.header("損益分岐点分析")
@@ -543,20 +543,205 @@ def main():
             st.dataframe(allocation_df, use_container_width=True)
         
         with tab4:
-            st.header("📚 損益分岐点分析の説明")
+            st.header("営業利益貢献度分析")
             
-            # 説明ファイルの内容を読み込んで表示
-            try:
-                with open("損益分岐点分析の説明.md", "r", encoding="utf-8") as f:
-                    explanation_content = f.read()
+            # 営業利益貢献度についての説明
+            with st.expander("ℹ️ 営業利益貢献度について", expanded=False):
+                st.markdown("""
+                **営業利益貢献度とは:**
+                - 売上総利益の増加が営業利益にどの程度貢献するかを示す指標
+                - 営業利益貢献度 = (売上総利益増加額 × 限界利益率) / 現在の営業利益
                 
-                # Markdownとして表示
-                st.markdown(explanation_content)
+                **指標の意味:**
+                - **高い値**: 売上総利益の増加が営業利益に大きく貢献
+                - **低い値**: 売上総利益の増加が営業利益にあまり貢献しない
                 
-            except FileNotFoundError:
-                st.error("説明ファイルが見つかりません。")
-            except Exception as e:
-                st.error(f"ファイル読み込みエラー: {e}")
+                **活用方法:**
+                - 事業部間の収益性比較
+                - 投資判断の参考指標
+                - 営業戦略の優先順位決定
+                """)
+            
+            # 目標売上総利益増加額の設定
+            st.subheader("分析設定")
+            col1, col2 = st.columns(2)
+            with col1:
+                use_current_allocation = st.checkbox(
+                    "現在の配賦による増加額を使用",
+                    value=True,
+                    help="チェックすると現在の本部費用配賦による売上総利益増加額を使用します"
+                )
+            with col2:
+                if not use_current_allocation:
+                    target_increase = st.number_input(
+                        "目標売上総利益増加額（円）",
+                        min_value=0,
+                        value=10000000,
+                        step=1000000,
+                        help="営業利益貢献度を計算する際の目標売上総利益増加額を設定"
+                    )
+                else:
+                    target_increase = None
+            
+            # 営業利益貢献度の計算
+            contribution_data = st.session_state.data_manager.calculate_operating_profit_contribution(target_increase)
+            
+            # 営業利益貢献度のサマリー表示
+            st.subheader("営業利益貢献度サマリー")
+            contribution_summary = st.session_state.data_manager.get_operating_profit_contribution_summary(target_increase)
+            st.dataframe(contribution_summary, use_container_width=True)
+            
+            # 営業利益貢献度の詳細分析
+            st.subheader("詳細分析")
+            
+            # 営業利益貢献度の可視化
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # 営業利益貢献度の棒グラフ
+                contribution_rates = [contribution_data[dept]["営業利益貢献度"] for dept in contribution_data.keys()]
+                dept_names = list(contribution_data.keys())
+                
+                fig_contribution = go.Figure(data=[
+                    go.Bar(
+                        x=dept_names,
+                        y=contribution_rates,
+                        text=[f"{rate:.1%}" for rate in contribution_rates],
+                        textposition='auto',
+                        marker_color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+                    )
+                ])
+                
+                fig_contribution.update_layout(
+                    title="営業利益貢献度",
+                    xaxis_title="事業部",
+                    yaxis_title="営業利益貢献度",
+                    yaxis_tickformat='.1%',
+                    height=400
+                )
+                
+                st.plotly_chart(fig_contribution, use_container_width=True)
+            
+            with col2:
+                # 限界利益率の棒グラフ
+                margin_rates = [contribution_data[dept]["限界利益率"] for dept in contribution_data.keys()]
+                
+                fig_margin = go.Figure(data=[
+                    go.Bar(
+                        x=dept_names,
+                        y=margin_rates,
+                        text=[f"{rate:.1%}" for rate in margin_rates],
+                        textposition='auto',
+                        marker_color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+                    )
+                ])
+                
+                fig_margin.update_layout(
+                    title="限界利益率",
+                    xaxis_title="事業部",
+                    yaxis_title="限界利益率",
+                    yaxis_tickformat='.1%',
+                    height=400
+                )
+                
+                st.plotly_chart(fig_margin, use_container_width=True)
+            
+            # グラフの説明
+            with st.expander("ℹ️ グラフの見方", expanded=False):
+                st.markdown("""
+                **営業利益貢献度:**
+                - 売上総利益の増加が営業利益に与える影響を示します
+                - 赤字の場合は「損失改善率」として表示されます
+                
+                **限界利益率:**
+                - 配賦後の実際の限界利益率を示します
+                - 高い値ほど、売上増加が営業利益に大きく貢献します
+                
+                **売上総利益-営業利益弾性:**
+                - 売上総利益が1%増加した時の営業利益の増加率を示します
+                - 赤字の場合は「損失改善弾性」として表示されます
+                """)
+            
+            # 売上総利益-営業利益弾性の分析
+            st.subheader("売上総利益-営業利益弾性分析")
+            
+            elasticity_data = st.session_state.data_manager.calculate_sales_profit_elasticity()
+            
+            # 弾性データをDataFrameで表示
+            elasticity_summary = []
+            for dept_name, data in elasticity_data.items():
+                # 弾性の表示を改善
+                if data["営業利益状態"] == "赤字":
+                    elasticity_display = f"損失改善弾性: {data['売上総利益-営業利益弾性']:.2f}"
+                    profit_increase_display = f"損失改善率: {data['営業利益増加率']:.1%}"
+                else:
+                    elasticity_display = f"{data['売上総利益-営業利益弾性']:.2f}"
+                    profit_increase_display = f"{data['営業利益増加率']:.1%}"
+                
+                elasticity_summary.append({
+                    "事業部": dept_name,
+                    "営業利益状態": data["営業利益状態"],
+                    "営業利益増加率": profit_increase_display,
+                    "売上総利益-営業利益弾性": elasticity_display,
+                    "限界利益率": f"{data['限界利益率']:.1%}"
+                })
+            
+            elasticity_df = pd.DataFrame(elasticity_summary)
+            st.dataframe(elasticity_df, use_container_width=True)
+            
+            # 弾性の説明
+            with st.expander("ℹ️ 売上総利益-営業利益弾性について", expanded=False):
+                st.markdown("""
+                **売上総利益-営業利益弾性とは:**
+                - 売上総利益が1%増加した時の営業利益の増加率を示す指標
+                - 弾性 = 営業利益増加率 ÷ 売上総利益増加率（1%）
+                
+                **弾性の解釈:**
+                - **弾性 > 1**: 売上総利益の増加以上に営業利益が増加（レバレッジ効果）
+                - **弾性 = 1**: 売上総利益の増加と同率で営業利益が増加
+                - **弾性 < 1**: 売上総利益の増加以下に営業利益が増加
+                
+                **活用方法:**
+                - 事業部の収益性の比較
+                - 投資効果の予測
+                - 営業戦略の優先順位決定
+                """)
+        
+        with tab5:
+            st.header("📚 分析手法の説明")
+            
+            # タブで説明を分ける
+            explanation_tab1, explanation_tab2 = st.tabs(["損益分岐点分析", "営業利益貢献度分析"])
+            
+            with explanation_tab1:
+                st.subheader("損益分岐点分析の説明")
+                # 説明ファイルの内容を読み込んで表示
+                try:
+                    with open("損益分岐点分析の説明.md", "r", encoding="utf-8") as f:
+                        explanation_content = f.read()
+                    
+                    # Markdownとして表示
+                    st.markdown(explanation_content)
+                    
+                except FileNotFoundError:
+                    st.error("損益分岐点分析の説明ファイルが見つかりません。")
+                except Exception as e:
+                    st.error(f"ファイル読み込みエラー: {e}")
+            
+            with explanation_tab2:
+                st.subheader("営業利益貢献度分析の説明")
+                # 説明ファイルの内容を読み込んで表示
+                try:
+                    with open("営業利益貢献度分析の説明.md", "r", encoding="utf-8") as f:
+                        explanation_content = f.read()
+                    
+                    # Markdownとして表示
+                    st.markdown(explanation_content)
+                    
+                except FileNotFoundError:
+                    st.error("営業利益貢献度分析の説明ファイルが見つかりません。")
+                except Exception as e:
+                    st.error(f"ファイル読み込みエラー: {e}")
         
         # フッター
         st.markdown("---")
