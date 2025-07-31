@@ -15,12 +15,36 @@ try:
     from utils.data_manager import DataManager
     from utils.chart_generator import ChartGenerator
     from utils.auth_manager import AuthManager
-    from utils.login_ui import show_login_page, show_user_management_page, show_user_profile, show_user_info_in_sidebar
     from utils.streamlit_compat import get_query_param, set_query_param, rerun_app
 except ImportError as e:
     st.error(f"モジュールのインポートエラー: {e}")
     st.error(f"Python version: {sys.version}")
     st.stop()
+
+# login_uiモジュールのインポート（個別にエラーハンドリング）
+try:
+    from utils.login_ui import show_login_page, show_user_management_page, show_user_profile, show_user_info_in_sidebar
+except ImportError as login_error:
+    st.error(f"login_uiモジュールのインポートエラー: {login_error}")
+    st.error(f"Python version: {sys.version}")
+    
+    # 代替実装を定義
+    def show_login_page():
+        st.error("ログイン機能が利用できません。システム管理者に連絡してください。")
+        return False
+    
+    def show_user_management_page():
+        st.error("ユーザー管理機能が利用できません。")
+    
+    def show_user_profile():
+        st.error("プロフィール機能が利用できません。")
+    
+    def show_user_info_in_sidebar():
+        st.sidebar.markdown("### 👤 ユーザー情報")
+        st.sidebar.write("**名前:** システムエラー")
+        st.sidebar.write("**役割:** 不明")
+    
+    st.warning("一部の機能が制限されています。")
 
 # ページ設定
 st.set_page_config(
@@ -92,7 +116,13 @@ def main():
             return
         
         # ヘッダーにユーザー情報を表示
-        show_user_info_in_sidebar()
+        try:
+            show_user_info_in_sidebar()
+        except Exception as e:
+            st.sidebar.markdown("### 👤 ユーザー情報")
+            st.sidebar.write("**名前:** システムエラー")
+            st.sidebar.write("**役割:** 不明")
+            st.sidebar.error(f"ユーザー情報表示エラー: {e}")
         
         # メインコンテンツ
         st.title("📊 8期予算計画策定ツール")
