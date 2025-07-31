@@ -158,9 +158,8 @@ def main():
             with st.expander("ℹ️ 操作方法", expanded=False):
                 st.markdown("""
                 **操作方法:**
-                - **スライダー**: ドラッグで概略調整
-                - **数値入力**: カーソルで上下、または直接入力で精密調整
-                - **合計確認**: 固定費・変動費それぞれの合計が1.00になるよう調整してください
+                - **数値入力**: %単位で配賦率を直接入力（1%刻み）
+                - **合計確認**: 固定費・変動費それぞれの合計が100%になるよう調整してください
                 - **リセット**: 均等配賦に戻す場合は「配賦割合をリセット」ボタンを使用
                 """)
             
@@ -170,53 +169,41 @@ def main():
             # 事業部名のリストを取得（順序を保持）
             dept_names = list(st.session_state.data_manager.departments.keys())
             
-            # 各事業部のスライダーと数値入力を表示
+            # 各事業部の数値入力を表示
             for i, dept_name in enumerate(dept_names):
                 # セッション状態から現在の値を取得
                 current_ratio = st.session_state.fixed_ratios[dept_name]
                 
-                # 4列レイアウトでラベル、スライダー、数値入力、現在値を並べる
-                col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+                # 3列レイアウトでラベル、数値入力、現在値を並べる（数値入力を大きく）
+                col1, col2, col3 = st.columns([1.5, 2.5, 1])
                 
                 with col1:
                     # ラベルを表示
                     st.markdown(f"**{dept_name}事業部**")
                 
                 with col2:
-                    # スライダーを表示
-                    ratio = st.slider(
-                        f"スライダー",
+                    # %単位の数値入力を表示（大きくして誤入力を防止）
+                    number_input = st.number_input(
+                        f"配賦率（%）",
                         min_value=0.0,
-                        max_value=1.0,
-                        value=current_ratio,
-                        step=0.01,
-                        format="%.2f",
-                        key=f"fixed_slider_{dept_name}",
+                        max_value=100.0,
+                        value=current_ratio * 100,
+                        step=1.0,
+                        format="%.0f",
+                        key=f"fixed_number_{dept_name}",
+                        help=f"配賦率を%単位で入力（{current_ratio:.1%}）",
                         label_visibility="collapsed"
                     )
+                    # %を小数に変換
+                    ratio = number_input / 100
                 
                 with col3:
-                    # 数値入力を表示（カーソルで上下可能）
-                    number_input = st.number_input(
-                        f"値",
-                        min_value=0.0,
-                        max_value=1.0,
-                        value=current_ratio,
-                        step=0.01,
-                        format="%.2f",
-                        key=f"fixed_number_{dept_name}",
-                        help=f"カーソルで上下、または直接入力（{current_ratio:.1%}）"
-                    )
-                
-                with col4:
                     # 現在値を表示
-                    st.markdown(f"**{current_ratio:.1%}**")
+                    st.markdown(f"**{ratio:.1%}**")
                 
-                # どちらかが変更された場合、セッション状態を更新
+                # 変更された場合、セッション状態を更新
                 if abs(ratio - current_ratio) > 0.001:
                     st.session_state.fixed_ratios[dept_name] = ratio
-                elif abs(number_input - current_ratio) > 0.001:
-                    st.session_state.fixed_ratios[dept_name] = number_input
             
             # 合計を表示
             total_fixed = sum(st.session_state.fixed_ratios.values())
@@ -231,53 +218,41 @@ def main():
             # 変動費の配賦割合
             st.markdown("**変動費配賦割合**")
             
-            # 各事業部のスライダーと数値入力を表示
+            # 各事業部の数値入力を表示
             for i, dept_name in enumerate(dept_names):
                 # セッション状態から現在の値を取得
                 current_ratio = st.session_state.variable_ratios[dept_name]
                 
-                # 4列レイアウトでラベル、スライダー、数値入力、現在値を並べる
-                col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+                # 3列レイアウトでラベル、数値入力、現在値を並べる（数値入力を大きく）
+                col1, col2, col3 = st.columns([1.5, 2.5, 1])
                 
                 with col1:
                     # ラベルを表示
                     st.markdown(f"**{dept_name}事業部**")
                 
                 with col2:
-                    # スライダーを表示
-                    ratio = st.slider(
-                        f"スライダー",
+                    # %単位の数値入力を表示（大きくして誤入力を防止）
+                    number_input = st.number_input(
+                        f"配賦率（%）",
                         min_value=0.0,
-                        max_value=1.0,
-                        value=current_ratio,
-                        step=0.01,
-                        format="%.2f",
-                        key=f"variable_slider_{dept_name}",
+                        max_value=100.0,
+                        value=current_ratio * 100,
+                        step=1.0,
+                        format="%.0f",
+                        key=f"variable_number_{dept_name}",
+                        help=f"配賦率を%単位で入力（{current_ratio:.1%}）",
                         label_visibility="collapsed"
                     )
+                    # %を小数に変換
+                    ratio = number_input / 100
                 
                 with col3:
-                    # 数値入力を表示（カーソルで上下可能）
-                    number_input = st.number_input(
-                        f"値",
-                        min_value=0.0,
-                        max_value=1.0,
-                        value=current_ratio,
-                        step=0.01,
-                        format="%.2f",
-                        key=f"variable_number_{dept_name}",
-                        help=f"カーソルで上下、または直接入力（{current_ratio:.1%}）"
-                    )
-                
-                with col4:
                     # 現在値を表示
-                    st.markdown(f"**{current_ratio:.1%}**")
+                    st.markdown(f"**{ratio:.1%}**")
                 
-                # どちらかが変更された場合、セッション状態を更新
+                # 変更された場合、セッション状態を更新
                 if abs(ratio - current_ratio) > 0.001:
                     st.session_state.variable_ratios[dept_name] = ratio
-                elif abs(number_input - current_ratio) > 0.001:
-                    st.session_state.variable_ratios[dept_name] = number_input
             
             # 合計を表示
             total_variable = sum(st.session_state.variable_ratios.values())
@@ -711,7 +686,7 @@ def main():
             st.header("📚 分析手法の説明")
             
             # タブで説明を分ける
-            explanation_tab1, explanation_tab2 = st.tabs(["損益分岐点分析", "営業利益貢献度分析"])
+            explanation_tab1, explanation_tab2, explanation_tab3 = st.tabs(["損益分岐点分析", "営業利益貢献度分析", "視覚的説明"])
             
             with explanation_tab1:
                 st.subheader("損益分岐点分析の説明")
@@ -742,6 +717,60 @@ def main():
                     st.error("営業利益貢献度分析の説明ファイルが見つかりません。")
                 except Exception as e:
                     st.error(f"ファイル読み込みエラー: {e}")
+            
+            with explanation_tab3:
+                st.subheader("視覚的説明")
+                st.markdown("""
+                ### 🎨 視覚的な説明ページ
+                より分かりやすい視覚的説明ページを別ウィンドウで開くことができます。
+                """)
+                
+                # HTMLファイルを開くボタン
+                if st.button("📊 視覚的説明ページを開く"):
+                    try:
+                        import webbrowser
+                        import os
+                        
+                        # 現在のディレクトリのHTMLファイルのパスを取得
+                        html_file_path = os.path.abspath("損益分岐点分析_視覚的説明.html")
+                        
+                        # ブラウザでHTMLファイルを開く
+                        webbrowser.open(f"file://{html_file_path}")
+                        
+                        st.success("視覚的説明ページを開きました。ブラウザで確認してください。")
+                        
+                    except Exception as e:
+                        st.error(f"HTMLファイルを開けませんでした: {e}")
+                        st.info("HTMLファイルを手動で開く場合は、プロジェクトフォルダ内の「損益分岐点分析_視覚的説明.html」をダブルクリックしてください。")
+                
+                st.markdown("""
+                ### 📋 視覚的説明ページの内容
+                
+                **🎯 損益分岐点分析とは**
+                - 企業の収益と費用が等しくなる売上高を算出
+                - 収益性を分析する手法
+                
+                **💰 重要な概念の理解**
+                - **固定費**: 売上に関係なく発生する費用
+                - **変動費**: 売上に比例して増減する費用
+                - **限界利益**: 売上高から変動費を差し引いた利益
+                
+                **🎯 損益分岐点の計算**
+                - 計算式と具体例
+                - 製造業と小売業の比較
+                
+                **📈 安全余裕率の計算**
+                - 良い例と注意例
+                - リスク評価の方法
+                
+                **🏢 事業部別の具体例**
+                - 製造事業部と販売事業部の比較
+                - 損益分岐点の違い
+                
+                **💼 本部費用配賦の影響**
+                - 配賦前後の比較
+                - メリットと注意点
+                """)
         
         # フッター
         st.markdown("---")

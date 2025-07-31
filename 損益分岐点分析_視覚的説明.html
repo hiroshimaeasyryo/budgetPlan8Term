@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>損益分岐点分析の視覚的説明</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            border-left: 5px solid #3498db;
+            padding-left: 15px;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+        }
+        .concept-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .example-box {
+            background-color: #ecf0f1;
+            border-left: 5px solid #e74c3c;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .formula-box {
+            background-color: #f8f9fa;
+            border: 2px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+        }
+        .visual-diagram {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        .cost-breakdown {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .cost-item {
+            background-color: #3498db;
+            color: white;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 200px;
+        }
+        .cost-item.fixed {
+            background-color: #e74c3c;
+        }
+        .cost-item.variable {
+            background-color: #f39c12;
+        }
+        .cost-item.margin {
+            background-color: #27ae60;
+        }
+        .calculation-example {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .warning {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        .comparison-table th {
+            background-color: #3498db;
+            color: white;
+        }
+        .comparison-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 損益分岐点分析の視覚的説明</h1>
+        
+        <div class="concept-box">
+            <h2>🎯 損益分岐点分析とは</h2>
+            <p>損益分岐点分析は、企業の収益と費用が等しくなる売上高や販売数量を算出し、収益性を分析する手法です。</p>
+        </div>
+
+        <h2>💰 重要な概念の理解</h2>
+        
+        <h3>1. 固定費とは</h3>
+        <div class="visual-diagram">
+            <h4>📈 固定費の特徴</h4>
+            <div style="display: flex; justify-content: space-around; margin: 20px 0;">
+                <div style="text-align: center;">
+                    <div style="width: 100px; height: 60px; background-color: #e74c3c; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>売上が0円でも発生</p>
+                </div>
+                <div style="text-align: center;">
+                    <div style="width: 100px; height: 60px; background-color: #e74c3c; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>売上が増えても一定</p>
+                </div>
+                <div style="text-align: center;">
+                    <div style="width: 100px; height: 60px; background-color: #e74c3c; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>短期的に調整困難</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="example-box">
+            <h4>🏭 製造業の固定費例</h4>
+            <ul>
+                <li><strong>人件費</strong>: 従業員の給与（基本給部分）</li>
+                <li><strong>家賃</strong>: 工場やオフィスの賃貸料</li>
+                <li><strong>減価償却費</strong>: 機械設備や建物の減価償却</li>
+                <li><strong>保険料</strong>: 火災保険、労災保険など</li>
+            </ul>
+        </div>
+
+        <h3>2. 変動費とは</h3>
+        <div class="visual-diagram">
+            <h4>📈 変動費の特徴</h4>
+            <div style="display: flex; justify-content: space-around; margin: 20px 0;">
+                <div style="text-align: center;">
+                    <div style="width: 50px; height: 30px; background-color: #f39c12; margin: 10px auto; border-radius: 5px;"></div>
+                    <div style="width: 75px; height: 45px; background-color: #f39c12; margin: 10px auto; border-radius: 5px;"></div>
+                    <div style="width: 100px; height: 60px; background-color: #f39c12; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>売上に比例して増加</p>
+                </div>
+                <div style="text-align: center;">
+                    <div style="width: 100px; height: 20px; background-color: #f39c12; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>単位当たり一定</p>
+                </div>
+                <div style="text-align: center;">
+                    <div style="width: 100px; height: 60px; background-color: #f39c12; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>短期的に調整可能</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="example-box">
+            <h4>🏪 小売業の変動費例</h4>
+            <ul>
+                <li><strong>仕入原価</strong>: 商品の仕入れ費用</li>
+                <li><strong>販売手数料</strong>: クレジットカード手数料</li>
+                <li><strong>配送費</strong>: 売上に応じた配送費用</li>
+                <li><strong>包装材料費</strong>: 商品包装に使用する材料費</li>
+            </ul>
+        </div>
+
+        <h3>3. 限界利益とは</h3>
+        <div class="formula-box">
+            <strong>限界利益 = 売上高 - 変動費</strong><br>
+            <strong>限界利益率 = 限界利益 ÷ 売上高</strong>
+        </div>
+
+        <div class="calculation-example">
+            <h4>📊 具体例：製造業の製品A</h4>
+            <table class="comparison-table">
+                <tr>
+                    <th>項目</th>
+                    <th>金額</th>
+                    <th>説明</th>
+                </tr>
+                <tr>
+                    <td>売価</td>
+                    <td>10,000円</td>
+                    <td>製品の販売価格</td>
+                </tr>
+                <tr>
+                    <td>原材料費</td>
+                    <td>4,000円</td>
+                    <td>製品に使用する材料費</td>
+                </tr>
+                <tr>
+                    <td>直接労務費</td>
+                    <td>2,000円</td>
+                    <td>製造に直接関わる作業員の費用</td>
+                </tr>
+                <tr>
+                    <td><strong>変動費合計</strong></td>
+                    <td><strong>6,000円</strong></td>
+                    <td>売上に比例する費用</td>
+                </tr>
+                <tr style="background-color: #d4edda;">
+                    <td><strong>限界利益</strong></td>
+                    <td><strong>4,000円</strong></td>
+                    <td>売上高 - 変動費</td>
+                </tr>
+                <tr style="background-color: #d4edda;">
+                    <td><strong>限界利益率</strong></td>
+                    <td><strong>40%</strong></td>
+                    <td>限界利益 ÷ 売上高</td>
+                </tr>
+            </table>
+        </div>
+
+        <h2>🎯 損益分岐点の計算</h2>
+        
+        <div class="formula-box">
+            <strong>損益分岐点売上高 = 固定費 ÷ (1 - 変動費率)</strong><br>
+            <strong>損益分岐点売上高 = 固定費 ÷ 限界利益率</strong>
+        </div>
+
+        <div class="calculation-example">
+            <h4>📊 計算例：製造業の場合</h4>
+            <ul>
+                <li><strong>固定費</strong>: 1,000万円/月</li>
+                <li><strong>限界利益率</strong>: 40%</li>
+                <li><strong>損益分岐点売上高</strong> = 1,000万円 ÷ 0.4 = <span class="highlight">2,500万円</span></li>
+            </ul>
+        </div>
+
+        <div class="calculation-example">
+            <h4>📊 計算例：小売業の場合</h4>
+            <ul>
+                <li><strong>固定費</strong>: 500万円/月</li>
+                <li><strong>限界利益率</strong>: 35%</li>
+                <li><strong>損益分岐点売上高</strong> = 500万円 ÷ 0.35 = <span class="highlight">1,429万円</span></li>
+            </ul>
+        </div>
+
+        <h2>📈 安全余裕率の計算</h2>
+        
+        <div class="formula-box">
+            <strong>安全余裕率 = (実際売上高 - 損益分岐点売上高) ÷ 実際売上高 × 100</strong>
+        </div>
+
+        <div class="success">
+            <h4>✅ 良い例：製造業（実際売上高3,000万円）</h4>
+            <p>安全余裕率 = (3,000万円 - 2,500万円) ÷ 3,000万円 × 100 = <strong>16.7%</strong></p>
+            <p>→ 売上が16.7%減少しても利益が出る余裕がある</p>
+        </div>
+
+        <div class="warning">
+            <h4>⚠️ 注意例：小売業（実際売上高1,200万円）</h4>
+            <p>安全余裕率 = (1,200万円 - 1,429万円) ÷ 1,200万円 × 100 = <strong>-19.1%</strong></p>
+            <p>→ 現在赤字で、売上を19.1%増加させる必要がある</p>
+        </div>
+
+        <h2>🏢 事業部別の具体例</h2>
+        
+        <table class="comparison-table">
+            <tr>
+                <th>項目</th>
+                <th>製造事業部</th>
+                <th>販売事業部</th>
+            </tr>
+            <tr>
+                <td>固定費（月額）</td>
+                <td>1,100万円</td>
+                <td>1,100万円</td>
+            </tr>
+            <tr>
+                <td>限界利益率</td>
+                <td>40%</td>
+                <td>30%</td>
+            </tr>
+            <tr style="background-color: #d4edda;">
+                <td><strong>損益分岐点売上高</strong></td>
+                <td><strong>2,750万円</strong></td>
+                <td><strong>3,667万円</strong></td>
+            </tr>
+            <tr>
+                <td>特徴</td>
+                <td>高利益率、低い損益分岐点</td>
+                <td>低利益率、高い損益分岐点</td>
+            </tr>
+        </table>
+
+        <h2>💼 本部費用配賦の影響</h2>
+        
+        <div class="visual-diagram">
+            <h4>📊 配賦前後の比較</h4>
+            <div style="display: flex; justify-content: space-around; margin: 20px 0;">
+                <div style="text-align: center;">
+                    <h5>配賦前</h5>
+                    <div style="width: 80px; height: 60px; background-color: #3498db; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>事業部固有コスト</p>
+                </div>
+                <div style="text-align: center;">
+                    <h5>配賦後</h5>
+                    <div style="width: 80px; height: 60px; background-color: #3498db; margin: 10px auto; border-radius: 5px;"></div>
+                    <div style="width: 80px; height: 40px; background-color: #e74c3c; margin: 10px auto; border-radius: 5px;"></div>
+                    <p>事業部固有 + 本部配賦</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="example-box">
+            <h4>📊 配賦例：製造事業部（売上高5,000万円）</h4>
+            <ul>
+                <li><strong>配賦率</strong>: 50%</li>
+                <li><strong>本部固定費配賦</strong>: 1,500万円</li>
+                <li><strong>本部変動費配賦</strong>: 100万円</li>
+                <li><strong>配賦後固定費</strong>: 2,600万円</li>
+                <li><strong>配賦後損益分岐点売上高</strong>: <span class="highlight">6,500万円</span></li>
+            </ul>
+        </div>
+
+        <div class="success">
+            <h4>✅ 配賦のメリット</h4>
+            <ul>
+                <li><strong>真の収益性把握</strong>: 各事業部の実際の収益性を把握</li>
+                <li><strong>責任会計</strong>: 事業部の責任範囲を明確化</li>
+                <li><strong>経営判断の精度向上</strong>: より正確な投資判断が可能</li>
+                <li><strong>コスト意識向上</strong>: 事業部の効率化意識を醸成</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h4>⚠️ 配賦の注意点</h4>
+            <ul>
+                <li><strong>配賦基準の恣意性</strong>: 基準選択における主観性</li>
+                <li><strong>事業部間の不公平感</strong>: 配賦基準による負担格差</li>
+                <li><strong>短期的思考の誘発</strong>: 配賦費用削減に偏重した行動</li>
+                <li><strong>全体最適化の阻害</strong>: 事業部個別最適による全体最適の阻害</li>
+            </ul>
+        </div>
+
+        <h2>🎯 まとめ</h2>
+        
+        <div class="concept-box">
+            <h3>損益分岐点分析と本部費用配賦の重要性</h3>
+            <p>適切に設計・運用された配賦システムは、企業全体の収益性向上と事業部の効率化を同時に実現し、より正確で公平な経営判断を支援することができます。</p>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
+            <h3>📚 学習のポイント</h3>
+            <ul style="text-align: left; display: inline-block;">
+                <li>固定費と変動費の違いを理解する</li>
+                <li>限界利益の重要性を把握する</li>
+                <li>損益分岐点の計算方法を習得する</li>
+                <li>安全余裕率の意味を理解する</li>
+                <li>本部費用配賦の影響を考慮する</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 
