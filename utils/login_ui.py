@@ -24,63 +24,50 @@ def show_login_page() -> Optional[bool]:
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        with st.container():
+        # シンプルなログインフォーム
+        with st.form("login_form"):
+            st.markdown("### ログイン")
+            
+            username = st.text_input("ユーザー名", key="login_username")
+            password = st.text_input("パスワード", type="password", key="login_password")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                login_submitted = st.form_submit_button("ログイン", type="primary")
+            with col2:
+                cancel_submitted = st.form_submit_button("キャンセル")
+            
+            if cancel_submitted:
+                return None
+            
+            if login_submitted:
+                if not username or not password:
+                    st.error("ユーザー名とパスワードを入力してください。")
+                    return False
+                
+                auth_manager = AuthManager()
+                success, message = auth_manager.login(username, password)
+                
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+                    return False
+        
+        # 初回起動時の案内
+        with st.expander("ℹ️ 初回起動について", expanded=False):
             st.markdown("""
-            <div style="
-                border: 1px solid #ddd;
-                border-radius: 10px;
-                padding: 2rem;
-                background-color: #f8f9fa;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            ">
-            """, unsafe_allow_html=True)
+            **初回起動時:**
+            - 管理者アカウントが自動的に作成されます
+            - 環境変数で設定可能（ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_NAME）
+            - デフォルト: ユーザー名 `admin` / パスワード `admin123`
             
-            # ログインフォーム
-            with st.form("login_form"):
-                st.markdown("### ログイン")
-                
-                username = st.text_input("ユーザー名", key="login_username")
-                password = st.text_input("パスワード", type="password", key="login_password")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    login_submitted = st.form_submit_button("ログイン", type="primary")
-                with col2:
-                    cancel_submitted = st.form_submit_button("キャンセル")
-                
-                if cancel_submitted:
-                    return None
-                
-                if login_submitted:
-                    if not username or not password:
-                        st.error("ユーザー名とパスワードを入力してください。")
-                        return False
-                    
-                    auth_manager = AuthManager()
-                    success, message = auth_manager.login(username, password)
-                    
-                    if success:
-                        st.success(message)
-                        st.rerun()
-                    else:
-                        st.error(message)
-                        return False
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            # 初回起動時の案内
-            with st.expander("ℹ️ 初回起動について", expanded=False):
-                st.markdown("""
-                **初回起動時:**
-                - 管理者アカウントが自動的に作成されます
-                - 環境変数で設定可能（ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_NAME）
-                - デフォルト: ユーザー名 `admin` / パスワード `admin123`
-                
-                **セキュリティ注意事項:**
-                - 初回ログイン後、必ずパスワードを変更してください
-                - 管理者アカウントでログイン後、必要に応じて一般ユーザーを追加してください
-                - 本番環境では環境変数で管理者アカウントを設定することを推奨します
-                """)
+            **セキュリティ注意事項:**
+            - 初回ログイン後、必ずパスワードを変更してください
+            - 管理者アカウントでログイン後、必要に応じて一般ユーザーを追加してください
+            - 本番環境では環境変数で管理者アカウントを設定することを推奨します
+            """)
     
     return False
 
@@ -210,25 +197,28 @@ def show_user_profile():
             st.success("ログアウトしました。")
             st.rerun()
 
-def show_header_with_user_info():
-    """ヘッダーにユーザー情報を表示"""
+def show_user_info_in_sidebar():
+    """サイドバーにユーザー情報を表示"""
     auth_manager = AuthManager()
     current_user = auth_manager.get_current_user()
     
     if current_user:
-        # 右上にユーザー情報を表示
-        st.markdown(f"""
-        <div style="position: fixed; top: 1rem; right: 1rem; z-index: 1000;">
-            <div style="
-                background-color: #f0f2f6;
-                padding: 0.5rem 1rem;
-                border-radius: 20px;
-                border: 1px solid #ddd;
-                font-size: 0.9rem;
-            ">
-                👤 {current_user['name']} ({current_user['role']})
-                <a href="?page=profile" style="margin-left: 0.5rem; color: #0066cc;">設定</a>
-                <a href="?page=logout" style="margin-left: 0.5rem; color: #cc0000;">ログアウト</a>
-            </div>
-        </div>
-        """, unsafe_allow_html=True) 
+        with st.sidebar:
+            st.markdown("### 👤 ユーザー情報")
+            st.write(f"**名前:** {current_user['name']}")
+            st.write(f"**役割:** {current_user['role']}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("⚙️ 設定", use_container_width=True):
+                    st.switch_page("?page=profile")
+            with col2:
+                if st.button("🚪 ログアウト", use_container_width=True, type="secondary"):
+                    auth_manager.logout()
+                    st.success("ログアウトしました。")
+                    st.rerun()
+
+def show_header_with_user_info():
+    """ヘッダーにユーザー情報を表示（非推奨 - サイドバー版を使用してください）"""
+    # この関数は非推奨です。show_user_info_in_sidebar()を使用してください。
+    pass 

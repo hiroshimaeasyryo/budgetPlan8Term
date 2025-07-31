@@ -15,7 +15,8 @@ try:
     from utils.data_manager import DataManager
     from utils.chart_generator import ChartGenerator
     from utils.auth_manager import AuthManager
-    from utils.login_ui import show_login_page, show_user_management_page, show_user_profile, show_header_with_user_info
+    from utils.login_ui import show_login_page, show_user_management_page, show_user_profile, show_user_info_in_sidebar
+    from utils.streamlit_compat import get_query_param, set_query_param, rerun_app
 except ImportError as e:
     st.error(f"モジュールのインポートエラー: {e}")
     st.error(f"Python version: {sys.version}")
@@ -54,7 +55,7 @@ def main():
     
     try:
         # URLパラメータからページを取得
-        page = st.experimental_get_query_params().get("page", [None])[0]
+        page = get_query_param("page", None)
         
         # ログアウト処理
         if page == "logout":
@@ -91,7 +92,7 @@ def main():
             return
         
         # ヘッダーにユーザー情報を表示
-        show_header_with_user_info()
+        show_user_info_in_sidebar()
         
         # メインコンテンツ
         st.title("📊 8期予算計画策定ツール")
@@ -105,18 +106,18 @@ def main():
             if current_user and current_user['role'] == 'admin':
                 st.subheader("🔧 管理者メニュー")
                 if st.button("👥 ユーザー管理"):
-                    st.experimental_set_query_params(page="user_management")
-                    st.experimental_rerun()
+                    set_query_param("page", "user_management")
+                    rerun_app()
             
             # ユーザーメニュー
             st.subheader("👤 ユーザーメニュー")
             if st.button("👤 プロフィール"):
-                st.experimental_set_query_params(page="profile")
-                st.experimental_rerun()
+                set_query_param("page", "profile")
+                rerun_app()
             if st.button("🚪 ログアウト"):
                 auth_manager.logout()
                 st.success("ログアウトしました。")
-                st.rerun()
+                rerun_app()
             
             st.markdown("---")
             
@@ -288,7 +289,7 @@ def main():
                 st.rerun()
         
         # メインコンテンツ
-        tab1, tab2, tab3 = st.tabs(["📈 損益分岐点分析", "📊 配賦サマリー", "📋 データ詳細"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📈 損益分岐点分析", "📊 配賦サマリー", "📋 データ詳細", "📚 損益分岐点分析の説明"])
         
         with tab1:
             st.header("損益分岐点分析")
@@ -314,16 +315,16 @@ def main():
             # 配賦後のコストを計算
             allocated_costs = st.session_state.data_manager.calculate_allocated_costs()
             
-            # 仮の売上総利益を表示
-            st.subheader("仮の売上総利益（配賦計算基準）")
-            col1, col2, col3 = st.columns(3)
-            for i, (dept_name, costs) in enumerate(allocated_costs.items()):
-                with col1 if i < 2 else col2 if i < 4 else col3:
-                    st.metric(
-                        f"{dept_name}事業部",
-                        f"{costs['implied_sales']:,.0f}円",
-                        f"配賦後限界利益率: {costs['margin_rate']:.1%}"
-                    )
+            # # 仮の売上総利益を表示
+            # st.subheader("仮の売上総利益（配賦計算基準）")
+            # col1, col2, col3 = st.columns(3)
+            # for i, (dept_name, costs) in enumerate(allocated_costs.items()):
+            #     with col1 if i < 2 else col2 if i < 4 else col3:
+            #         st.metric(
+            #             f"{dept_name}事業部",
+            #             f"{costs['implied_sales']:,.0f}円",
+            #             f"配賦後限界利益率: {costs['margin_rate']:.1%}"
+            #         )
             
             # グラフを生成
             fig = st.session_state.chart_generator.create_break_even_chart(allocated_costs)
@@ -510,6 +511,22 @@ def main():
                 for dept_name, ratios in st.session_state.data_manager.get_allocation_ratios().items()
             ])
             st.dataframe(allocation_df, use_container_width=True)
+        
+        with tab4:
+            st.header("📚 損益分岐点分析の説明")
+            
+            # 説明ファイルの内容を読み込んで表示
+            try:
+                with open("損益分岐点分析の説明.md", "r", encoding="utf-8") as f:
+                    explanation_content = f.read()
+                
+                # Markdownとして表示
+                st.markdown(explanation_content)
+                
+            except FileNotFoundError:
+                st.error("説明ファイルが見つかりません。")
+            except Exception as e:
+                st.error(f"ファイル読み込みエラー: {e}")
         
         # フッター
         st.markdown("---")
