@@ -21,6 +21,23 @@ except ImportError as e:
     st.error(f"Python version: {sys.version}")
     st.stop()
 
+def validate_data_manager(data_manager):
+    """DataManagerの妥当性をチェックし、必要に応じて再初期化"""
+    required_methods = [
+        'calculate_operating_profit_contribution',
+        'get_operating_profit_contribution_summary',
+        'calculate_sales_profit_elasticity',
+        'calculate_allocated_costs',
+        'get_summary_data'
+    ]
+    
+    missing_methods = [method for method in required_methods if not hasattr(data_manager, method)]
+    
+    if missing_methods:
+        st.warning(f"DataManagerに必要なメソッドが不足しています: {missing_methods}")
+        return False
+    return True
+
 # login_uiモジュールのインポート（個別にエラーハンドリング）
 try:
     from utils.login_ui import show_login_page, show_user_management_page, show_user_profile, show_user_info_in_sidebar
@@ -60,6 +77,10 @@ auth_manager = AuthManager()
 # セッション状態の初期化
 if 'data_manager' not in st.session_state:
     st.session_state.data_manager = DataManager()
+elif not validate_data_manager(st.session_state.data_manager):
+    # メソッドが不足している場合は再初期化
+    st.session_state.data_manager = DataManager()
+
 if 'chart_generator' not in st.session_state:
     st.session_state.chart_generator = ChartGenerator()
 
@@ -123,6 +144,15 @@ def main():
             st.sidebar.write("**名前:** システムエラー")
             st.sidebar.write("**役割:** 不明")
             st.sidebar.error(f"ユーザー情報表示エラー: {e}")
+        
+        # キャッシュクリアボタンをサイドバーに追加
+        if st.sidebar.button("🔄 キャッシュクリア"):
+            st.cache_data.clear()
+            st.cache_resource.clear()
+            st.session_state.clear()
+            st.session_state.data_manager = DataManager()
+            st.session_state.chart_generator = ChartGenerator()
+            st.rerun()
         
         # メインコンテンツ
         st.title("📊 8期予算計画策定ツール")
@@ -559,7 +589,18 @@ def main():
                     target_increase = None
             
             # 営業利益貢献度の計算
-            contribution_data = st.session_state.data_manager.calculate_operating_profit_contribution(target_increase)
+            try:
+                contribution_data = st.session_state.data_manager.calculate_operating_profit_contribution(target_increase)
+            except AttributeError as e:
+                st.error(f"DataManagerのメソッドが見つかりません: {e}")
+                st.error("DataManagerを再初期化します...")
+                st.session_state.data_manager = DataManager()
+                contribution_data = st.session_state.data_manager.calculate_operating_profit_contribution(target_increase)
+            except Exception as e:
+                st.error(f"営業利益貢献度の計算中にエラーが発生しました: {e}")
+                st.error("詳細なエラー情報:")
+                st.code(traceback.format_exc())
+                return
             
             # 営業利益貢献度のサマリー表示
             st.subheader("営業利益貢献度サマリー")
